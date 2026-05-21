@@ -33,8 +33,14 @@ class BackTestEngine:
         
         for i in range(len(filtered_data)):
             current_data = filtered_data.iloc[:i+1]
+            current_date = filtered_data.index[i]
+            current_price = filtered_data['close'].iloc[i]
+            
+            self.broker.set_price(current_price)
             self.strategy.set_data(current_data)
             self.strategy.on_bar(current_data)
+            
+            self.broker.update_portfolio(current_date)
         
         self.results = self._generate_results()
         return self.results

@@ -4,7 +4,7 @@
 
 ## 功能特性
 
-- 支持多种数据源（股票、期货、加密货币）
+- 支持股票交易数据
 - 灵活的策略开发框架
 - 强大的回测引擎
 - 实时交易支持
@@ -135,7 +135,46 @@ class MyStrategy(BaseStrategy):
 实盘交易模块，对接券商API。
 
 ### utils/
-工具函数集合，包括数据获取、日志和配置管理。
+工具函数集合，包括数据获取、数据管理、日志和配置管理。
+
+### utils/datasources/
+数据源接口模块，支持多种数据源扩展。
+
+### 数据管理模块使用示例
+
+```python
+from utils.data_manager import DataManager
+
+# 创建数据管理器
+dm = DataManager()
+
+# 添加股票
+dm.add_stock('600519', '贵州茅台', 'A', '白酒', '2001-08-27')
+
+# 下载股票数据
+success, msg = dm.download_data('600519', '2023-01-01', '2023-12-31')
+
+# 列出已下载股票
+stocks = dm.list_downloaded_stocks()
+
+# 查看数据库统计
+summary = dm.get_database_summary()
+
+# 查看单个股票详情
+detail = dm.get_stock_detail('600519')
+
+# 扫描数据缺口
+gaps = dm.scan_data_gaps()
+
+# 修复数据缺口
+results = dm.fix_data_gaps()
+
+# 同步当日数据
+sync_result = dm.sync_today_data()
+
+# 设置定时同步（每天18:00）
+dm.schedule_sync('18:00')
+```
 
 ## 测试
 
