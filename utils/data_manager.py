@@ -9,6 +9,59 @@ class DataManager:
         self.db_path = db_path
         self._init_database()
         self.data_source = None
+        self.stock_list_file = 'data/basic/stock_list.csv'
+    
+    def fetch_a_stock_list(self, source='baostock'):
+        """从数据源获取A股股票列表"""
+        if self.data_source is None:
+            self.data_source = DataSourceFactory.create_source(source)
+            self.data_source.initialize()
+        
+        df = self.data_source.get_stock_list(market='A')
+        return df
+    
+    def save_stock_list_to_file(self, df, filename=None):
+        """保存股票列表到本地文件"""
+        if filename is None:
+            filename = self.stock_list_file
+        
+        os.makedirs(os.path.dirname(filename), exist_ok=True)
+        df.to_csv(filename, index=False)
+        return filename
+    
+    def load_stock_list_from_file(self, filename=None):
+        """从本地文件加载股票列表"""
+        if filename is None:
+            filename = self.stock_list_file
+        
+        if not os.path.exists(filename):
+            return None
+        
+        df = pd.read_csv(filename)
+        return df
+    
+    def get_a_stock_list(self, source='baostock', use_local=True):
+        """
+        获取A股股票列表，优先使用本地文件
+        
+        Args:
+            source: 数据源
+            use_local: 是否优先使用本地文件
+        
+        Returns:
+            DataFrame: 股票列表
+        """
+        if use_local:
+            df = self.load_stock_list_from_file()
+            if df is not None and not df.empty:
+                return df
+        
+        df = self.fetch_a_stock_list(source)
+        
+        if not df.empty:
+            self.save_stock_list_to_file(df)
+        
+        return df
     
     def _init_database(self):
         os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
@@ -85,8 +138,7 @@ class DataManager:
         date_range = cursor.fetchone()
         
         cursor.execute('''
-            SELECT symbol, COUNT(*) as gaps 
-            FROM data_status 
+            SELECT COUNT(*) FROM data_status 
             WHERE status = 'incomplete'
         ''')
         incomplete_count = cursor.fetchone()[0] if cursor.rowcount > 0 else 0
@@ -140,7 +192,65 @@ class DataManager:
         detail['recent_data'] = recent_data
         return detail
     
-    def download_data(self, symbol, start_date, end_date, source='akshare'):
+    def check_local_data(self, symbol, start_date, end_date):
+        """检查本地是否存在指定时间段的数据"""
+        conn = self._connect()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT COUNT(*) FROM daily_data 
+            WHERE symbol = ? AND date >= ? AND date <= ?
+        ''', (symbol, start_date, end_date))
+        
+        count = cursor.fetchone()[0]
+        conn.close()
+        
+        expected_days = len(pd.date_range(start_date, end_date, freq='B'))
+        coverage = count / expected_days if expected_days > 0 else 0
+        
+        return {
+            'exists': count > 0,
+            'count': count,
+            'expected': expected_days,
+            'coverage': coverage
+        }
+    
+    def get_local_data(self, symbol, start_date, end_date):
+        """从本地读取指定时间段的数据"""
+        conn = self._connect()
+        query = '''
+            SELECT * FROM daily_data 
+            WHERE symbol = ? AND date >= ? AND date <= ?
+            ORDER BY date
+        '''
+        df = pd.read_sql(query, conn, params=(symbol, start_date, end_date))
+        conn.close()
+        
+        if not df.empty:
+            df['date'] = pd.to_datetime(df['date'])
+            df.set_index('date', inplace=True)
+        
+        return df
+    
+    def download_data(self, symbol, start_date, end_date, source='baostock', use_local=True):
+        """
+        下载股票数据，优先检查本地数据
+        
+        Args:
+            symbol: 股票代码
+            start_date: 开始日期
+            end_date: 结束日期
+            source: 数据源
+            use_local: 是否优先使用本地数据
+        
+        Returns:
+            (success, message)
+        """
+        if use_local:
+            local_info = self.check_local_data(symbol, start_date, end_date)
+            if local_info['coverage'] >= 0.95:
+                return True, f"本地已存在完整数据 ({local_info['count']}/{local_info['expected']} 条)"
+        
         if self.data_source is None:
             self.data_source = DataSourceFactory.create_source(source)
             self.data_source.initialize()
@@ -152,9 +262,16 @@ class DataManager:
                 return False, "未获取到数据"
             
             conn = self._connect()
+            
             df['date'] = df.index.strftime('%Y-%m-%d')
             df['symbol'] = symbol
             df['data_source'] = source
+            
+            cursor = conn.cursor()
+            cursor.execute('''
+                DELETE FROM daily_data 
+                WHERE symbol = ? AND date >= ? AND date <= ?
+            ''', (symbol, start_date, end_date))
             
             df.to_sql('daily_data', conn, if_exists='append', index=False)
             
@@ -164,10 +281,99 @@ class DataManager:
             conn.commit()
             conn.close()
             
-            return True, f"成功下载 {len(df)} 条数据"
+            csv_path = self._save_to_csv(df, source, start_date, end_date, symbol)
+            
+            return True, f"成功下载 {len(df)} 条数据，已保存至 {csv_path}"
         
         except Exception as e:
             return False, str(e)
+    
+    def download_all_stocks(self, start_date, end_date, source='baostock'):
+        """下载所有A股股票的数据，只保存合并的 CSV 文件"""
+        print(f"正在获取A股股票列表...")
+        
+        stock_list = self.get_a_stock_list(source=source, use_local=True)
+        
+        if stock_list is None or stock_list.empty:
+            return {'success': [], 'failed': [], 'skipped': [], 'error': '无法获取股票列表'}
+        
+        symbols = stock_list['symbol'].tolist()
+        print(f"共找到 {len(symbols)} 只股票")
+        
+        results = {'success': [], 'failed': [], 'skipped': [], 'total': len(symbols)}
+        all_data = []
+        
+        if self.data_source is None:
+            self.data_source = DataSourceFactory.create_source(source)
+            self.data_source.initialize()
+        
+        for i, symbol in enumerate(symbols):
+            print(f"\r正在下载 ({i+1}/{len(symbols)}): {symbol}", end='', flush=True)
+            
+            local_info = self.check_local_data(symbol, start_date, end_date)
+            
+            if local_info['coverage'] >= 0.95:
+                results['skipped'].append({'symbol': symbol, 'reason': '本地已有完整数据'})
+                df = self.get_local_data(symbol, start_date, end_date)
+                if not df.empty:
+                    df = df.reset_index()
+                    df['symbol'] = symbol
+                    all_data.append(df)
+            else:
+                try:
+                    df = self.data_source.get_daily_data(symbol, start_date, end_date)
+                    
+                    if df.empty:
+                        results['failed'].append({'symbol': symbol, 'error': '未获取到数据'})
+                        continue
+                    
+                    df['date'] = df.index.strftime('%Y-%m-%d')
+                    df['symbol'] = symbol
+                    df['data_source'] = source
+                    
+                    conn = self._connect()
+                    cursor = conn.cursor()
+                    cursor.execute('''
+                        DELETE FROM daily_data 
+                        WHERE symbol = ? AND date >= ? AND date <= ?
+                    ''', (symbol, start_date, end_date))
+                    
+                    df.to_sql('daily_data', conn, if_exists='append', index=False)
+                    self._update_stock_info(symbol, df)
+                    self._update_data_status(symbol)
+                    conn.commit()
+                    conn.close()
+                    
+                    results['success'].append({'symbol': symbol, 'message': f"成功下载 {len(df)} 条数据"})
+                    
+                    df = self.get_local_data(symbol, start_date, end_date)
+                    if not df.empty:
+                        df = df.reset_index()
+                        df['symbol'] = symbol
+                        all_data.append(df)
+                
+                except Exception as e:
+                    results['failed'].append({'symbol': symbol, 'error': str(e)})
+        
+        # 合并所有股票数据为一个 CSV 文件
+        if all_data:
+            all_df = pd.concat(all_data, ignore_index=True)
+            all_df = all_df[['date', 'symbol', 'open', 'high', 'low', 'close', 'volume', 'amount', 'data_source']]
+            csv_filename = self._save_to_csv(all_df, source, start_date, end_date, 'all')
+            results['csv_file'] = csv_filename
+        
+        return results
+    
+    def _save_to_csv(self, df, source, start_date, end_date, symbol='all'):
+        """保存数据到 CSV 文件"""
+        os.makedirs('data/csv', exist_ok=True)
+        
+        csv_filename = f"{source}_{start_date}_{end_date}_{symbol}.csv"
+        csv_path = os.path.join('data', 'csv', csv_filename)
+        
+        df.to_csv(csv_path, index=False)
+        
+        return csv_path
     
     def _update_stock_info(self, symbol, df):
         conn = self._connect()
@@ -281,7 +487,7 @@ class DataManager:
     
     def _fix_single_stock_gaps(self, symbol, missing_dates):
         if self.data_source is None:
-            self.data_source = DataSourceFactory.create_source('akshare')
+            self.data_source = DataSourceFactory.create_source('baostock')
             self.data_source.initialize()
         
         fixed_count = 0
@@ -294,7 +500,7 @@ class DataManager:
                     conn = self._connect()
                     df['date'] = df.index.strftime('%Y-%m-%d')
                     df['symbol'] = symbol
-                    df['data_source'] = 'akshare'
+                    df['data_source'] = 'baostock'
                     df.to_sql('daily_data', conn, if_exists='append', index=False)
                     conn.commit()
                     conn.close()

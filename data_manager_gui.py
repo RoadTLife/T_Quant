@@ -121,12 +121,6 @@ class DataManagerGUI:
         """下载股票数据"""
         print("\n--- 下载股票数据 ---")
         
-        symbol = get_input("请输入股票代码: ")
-        valid, msg = validate_stock_symbol(symbol)
-        if not valid:
-            print_error(msg)
-            return
-        
         while True:
             start_date = get_input("请输入开始日期 (YYYY-MM-DD): ")
             valid, msg = validate_date(start_date)
@@ -141,15 +135,51 @@ class DataManagerGUI:
                 break
             print_error(msg)
         
-        source = get_input("请输入数据源 (默认akshare): ", required=False, default='akshare')
+        print("\n选择下载方式:")
+        print("1. 下载指定股票")
+        print("2. 下载所有股票")
+        choice = get_input("请选择 (1/2): ")
         
-        print(f"\n正在下载 {symbol} ({start_date} ~ {end_date})...")
-        success, msg = self.dm.download_data(symbol, start_date, end_date, source)
+        source = get_input("请输入数据源 (默认baostock): ", required=False, default='baostock')
         
-        if success:
-            print_success(msg)
+        if choice == '2':
+            print(f"\n正在下载所有股票数据 ({start_date} ~ {end_date})...")
+            results = self.dm.download_all_stocks(start_date, end_date, source)
+            
+            print("\n下载结果:")
+            print(f"  成功: {len(results['success'])} 只股票")
+            for item in results['success']:
+                print(f"    {item['symbol']}: {item['message']}")
+            
+            print(f"  跳过: {len(results['skipped'])} 只股票")
+            for item in results['skipped']:
+                print(f"    {item['symbol']}: {item['reason']}")
+            
+            if results['failed']:
+                print(f"  失败: {len(results['failed'])} 只股票")
+                for item in results['failed']:
+                    print(f"    {item['symbol']}: {item['error']}")
         else:
-            print_error(msg)
+            symbol = get_input("请输入股票代码: ")
+            valid, msg = validate_stock_symbol(symbol)
+            if not valid:
+                print_error(msg)
+                return
+            
+            print(f"\n正在检查本地数据 {symbol} ({start_date} ~ {end_date})...")
+            local_info = self.dm.check_local_data(symbol, start_date, end_date)
+            
+            if local_info['coverage'] >= 0.95:
+                print_success(f"本地已存在完整数据 ({local_info['count']}/{local_info['expected']} 条)")
+                return
+            
+            print_info(f"本地数据不完整，开始下载 {symbol}...")
+            success, msg = self.dm.download_data(symbol, start_date, end_date, source)
+            
+            if success:
+                print_success(msg)
+            else:
+                print_error(msg)
     
     def action_scan(self):
         """扫描数据缺口"""

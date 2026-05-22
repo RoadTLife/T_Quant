@@ -47,10 +47,11 @@ def main():
     add_parser.add_argument('--listed_date', default='', help='上市日期')
     
     download_parser = subparsers.add_parser('download', help='下载股票数据')
-    download_parser.add_argument('symbol', help='股票代码')
     download_parser.add_argument('start', help='开始日期 (YYYY-MM-DD)')
     download_parser.add_argument('end', help='结束日期 (YYYY-MM-DD)')
-    download_parser.add_argument('--source', default='akshare', help='数据源')
+    download_parser.add_argument('--symbol', help='股票代码（不指定则使用--all）')
+    download_parser.add_argument('--all', action='store_true', help='下载所有股票')
+    download_parser.add_argument('--source', default='baostock', help='数据源')
     
     scan_parser = subparsers.add_parser('scan', help='扫描数据缺口')
     scan_parser.add_argument('--symbol', help='股票代码（可选）')

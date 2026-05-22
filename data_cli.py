@@ -92,10 +92,6 @@ def cmd_add(args):
 
 def cmd_download(args):
     """下载数据"""
-    valid, msg = validate_stock_symbol(args.symbol)
-    if not valid:
-        exit_with_error(msg)
-    
     valid_start, msg = validate_date(args.start)
     if not valid_start:
         exit_with_error(f"开始日期{msg}")
@@ -105,14 +101,51 @@ def cmd_download(args):
         exit_with_error(f"结束日期{msg}")
     
     dm = DataManager()
-    print_info(f"正在下载 {args.symbol} ({args.start} ~ {args.end})...")
     
-    success, msg = dm.download_data(args.symbol, args.start, args.end, args.source)
-    
-    if success:
-        print_success(msg)
+    if hasattr(args, 'all') and args.all:
+        print_info(f"正在下载所有股票数据 ({args.start} ~ {args.end})...")
+        results = dm.download_all_stocks(args.start, args.end, args.source)
+        
+        print("\n下载结果:")
+        print(f"  成功: {len(results['success'])} 只股票")
+        for item in results['success']:
+            print(f"    {item['symbol']}: {item['message']}")
+        
+        print(f"  跳过: {len(results['skipped'])} 只股票")
+        for item in results['skipped']:
+            print(f"    {item['symbol']}: {item['reason']}")
+        
+        if results['failed']:
+            print(f"  失败: {len(results['failed'])} 只股票")
+            for item in results['failed']:
+                print(f"    {item['symbol']}: {item['error']}")
+        
+        if 'csv_file' in results:
+            print(f"\nCSV 文件已保存: {results['csv_file']}")
     else:
-        print_error(msg)
+        valid, msg = validate_stock_symbol(args.symbol)
+        if not valid:
+            exit_with_error(msg)
+        
+        print_info(f"正在检查本地数据 {args.symbol} ({args.start} ~ {args.end})...")
+        
+        local_info = dm.check_local_data(args.symbol, args.start, args.end)
+        if local_info['coverage'] >= 0.95:
+            print_success(f"本地已存在完整数据 ({local_info['count']}/{local_info['expected']} 条)")
+            csv_filename = f"{args.source}_{args.start}_{args.end}_{args.symbol}.csv"
+            print_info(f"CSV 文件: data/csv/{csv_filename}")
+            return
+        
+        print_info(f"本地数据不完整，开始下载 {args.symbol}...")
+        
+        success, msg = dm.download_data(args.symbol, args.start, args.end, args.source)
+        
+        if success:
+            print_success(msg)
+            csv_filename = f"{args.source}_{args.start}_{args.end}_{args.symbol}.csv"
+            print_info(f"CSV 文件: data/csv/{csv_filename}")
+        else:
+            print_error(msg)
 
 def cmd_scan(args):
     """扫描数据缺口"""
@@ -208,10 +241,11 @@ def main():
     add_parser.add_argument('--listed_date', default='', help='上市日期')
     
     download_parser = subparsers.add_parser('download', help='下载数据')
-    download_parser.add_argument('symbol', help='股票代码')
     download_parser.add_argument('start', help='开始日期 (YYYY-MM-DD)')
     download_parser.add_argument('end', help='结束日期 (YYYY-MM-DD)')
-    download_parser.add_argument('--source', default='akshare', help='数据源')
+    download_parser.add_argument('--symbol', help='股票代码（不指定则使用--all）')
+    download_parser.add_argument('--all', action='store_true', help='下载所有股票')
+    download_parser.add_argument('--source', default='baostock', help='数据源')
     
     scan_parser = subparsers.add_parser('scan', help='扫描数据缺口')
     scan_parser.add_argument('--symbol', help='股票代码（可选）')
