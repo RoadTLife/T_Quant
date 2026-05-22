@@ -1,11 +1,13 @@
 from .base import BaseDataSource
 from .baostock_source import BaostockDataSource
+from .akshare_bond_source import AKShareBondDataSource
 
 class DataSourceFactory:
     """数据源工厂类，用于创建和管理不同的数据源"""
     
     _sources = {
-        'baostock': BaostockDataSource
+        'baostock': BaostockDataSource,
+        'akshare_bond': AKShareBondDataSource
     }
     
     @classmethod
@@ -31,4 +33,4 @@ class DataSourceFactory:
         """获取所有可用的数据源名称"""
         return list(cls._sources.keys())
 
-__all__ = ['BaseDataSource', 'BaostockDataSource', 'DataSourceFactory']
+__all__ = ['BaseDataSource', 'BaostockDataSource', 'AKShareBondDataSource', 'DataSourceFactory']

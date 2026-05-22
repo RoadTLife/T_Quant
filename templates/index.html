@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>股票信息查询</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .search-box {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+
+        .search-container {
+            position: relative;
+        }
+
+        .search-container input {
+            width: 100%;
+            padding: 16px 20px;
+            font-size: 1.1rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .search-container input:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .search-container input::placeholder {
+            color: #999;
+        }
+
+        .suggestions {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 0 0 10px 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            max-height: 300px;
+            overflow-y: auto;
+            display: none;
+            z-index: 100;
+        }
+
+        .suggestions.show {
+            display: block;
+        }
+
+        .suggestion-item {
+            padding: 12px 20px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+            transition: background 0.2s ease;
+        }
+
+        .suggestion-item:hover {
+            background: #f8f9fa;
+        }
+
+        .suggestion-item:last-child {
+            border-bottom: none;
+            border-radius: 0 0 10px 10px;
+        }
+
+        .suggestion-symbol {
+            font-weight: 600;
+            color: #667eea;
+            margin-right: 12px;
+        }
+
+        .suggestion-name {
+            color: #333;
+        }
+
+        .suggestion-industry {
+            color: #999;
+            font-size: 0.85rem;
+            margin-top: 4px;
+        }
+
+        .result-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+            padding: 30px;
+            display: none;
+        }
+
+        .result-card.show {
+            display: block;
+        }
+
+        .result-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .stock-icon {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-right: 20px;
+        }
+
+        .stock-info h2 {
+            font-size: 1.8rem;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .stock-symbol {
+            color: #667eea;
+            font-size: 1.1rem;
+            font-weight: 500;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .info-item {
+            background: #f8f9fa;
+            padding: 16px 20px;
+            border-radius: 10px;
+        }
+
+        .info-label {
+            color: #999;
+            font-size: 0.85rem;
+            margin-bottom: 5px;
+        }
+
+        .info-value {
+            color: #333;
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .info-value.highlight {
+            color: #667eea;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #667eea;
+            font-size: 1.1rem;
+        }
+
+        .loading::after {
+            content: '';
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #667eea;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 0.8s linear infinite;
+            margin-left: 10px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .error-message {
+            background: #fff5f5;
+            border: 1px solid #ffe5e5;
+            border-radius: 10px;
+            padding: 16px 20px;
+            color: #c53030;
+            text-align: center;
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        .footer {
+            text-align: center;
+            color: white;
+            margin-top: 40px;
+            opacity: 0.8;
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 600px) {
+            .header h1 {
+                font-size: 1.8rem;
+            }
+            
+            .search-box, .result-card {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📈 股票信息查询</h1>
+            <p>输入股票代码或名称，查询股票基本信息</p>
+        </div>
+
+        <div class="search-box">
+            <div class="search-container">
+                <input 
+                    type="text" 
+                    id="searchInput" 
+                    placeholder="请输入股票代码或名称（如：600519 或 贵州茅台）"
+                    autocomplete="off"
+                >
+                <div class="suggestions" id="suggestions"></div>
+            </div>
+        </div>
+
+        <div class="error-message" id="errorMessage"></div>
+
+        <div class="result-card" id="resultCard">
+            <div class="result-header">
+                <div class="stock-icon" id="stockIcon">?</div>
+                <div class="stock-info">
+                    <h2 id="stockName">-</h2>
+                    <div class="stock-symbol" id="stockSymbol">-</div>
+                </div>
+            </div>
+
+            <div class="info-grid">
+                <div class="info-item">
+                    <div class="info-label">所属行业</div>
+                    <div class="info-value highlight" id="stockIndustry">-</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">上市日期</div>
+                    <div class="info-value" id="stockListDate">-</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">市场类型</div>
+                    <div class="info-value" id="stockMarket">-</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">数据来源</div>
+                    <div class="info-value" id="stockSource">-</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            数据来源：Baostock | A股股票列表
+        </div>
+    </div>
+
+    <script>
+        const searchInput = document.getElementById('searchInput');
+        const suggestions = document.getElementById('suggestions');
+        const resultCard = document.getElementById('resultCard');
+        const errorMessage = document.getElementById('errorMessage');
+
+        let debounceTimer = null;
+
+        searchInput.addEventListener('input', function() {
+            const query = this.value.trim();
+            
+            clearTimeout(debounceTimer);
+            
+            if (!query) {
+                suggestions.classList.remove('show');
+                resultCard.classList.remove('show');
+                errorMessage.classList.remove('show');
+                return;
+            }
+
+            debounceTimer = setTimeout(() => {
+                fetch(`/api/search?q=${encodeURIComponent(query)}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (Array.isArray(data) && data.length > 0) {
+                            displaySuggestions(data);
+                        } else {
+                            suggestions.classList.remove('show');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('搜索失败:', error);
+                        suggestions.classList.remove('show');
+                    });
+            }, 300);
+        });
+
+        function displaySuggestions(stocks) {
+            suggestions.innerHTML = stocks.map(stock => `
+                <div class="suggestion-item" onclick="selectStock('${stock.symbol}')">
+                    <span class="suggestion-symbol">${stock.symbol}</span>
+                    <span class="suggestion-name">${stock.name || '-'}</span>
+                    ${stock.industry ? `<div class="suggestion-industry">${stock.industry}</div>` : ''}
+                </div>
+            `).join('');
+            suggestions.classList.add('show');
+        }
+
+        window.selectStock = function(symbol) {
+            searchInput.value = symbol;
+            suggestions.classList.remove('show');
+            loadStockDetail(symbol);
+        }
+
+        searchInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                suggestions.classList.remove('show');
+                const query = this.value.trim();
+                if (query) {
+                    loadStockDetail(query);
+                }
+            }
+        });
+
+        function loadStockDetail(symbol) {
+            resultCard.classList.remove('show');
+            errorMessage.classList.remove('show');
+
+            fetch(`/api/stock/${encodeURIComponent(symbol)}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('股票不存在');
+                    }
+                    return response.json();
+                })
+                .then(stock => {
+                    displayStockDetail(stock);
+                })
+                .catch(error => {
+                    errorMessage.textContent = error.message;
+                    errorMessage.classList.add('show');
+                });
+        }
+
+        function displayStockDetail(stock) {
+            document.getElementById('stockIcon').textContent = stock.symbol ? stock.symbol.slice(-4) : '?';
+            document.getElementById('stockName').textContent = stock.name || '-';
+            document.getElementById('stockSymbol').textContent = stock.symbol || '-';
+            document.getElementById('stockIndustry').textContent = stock.industry || '-';
+            document.getElementById('stockListDate').textContent = stock.listed_date || '-';
+            
+            let market = '-';
+            if (stock.symbol) {
+                if (stock.symbol.includes('.SH') || stock.symbol.startsWith('6')) {
+                    market = '上海证券交易所';
+                } else if (stock.symbol.includes('.SZ') || stock.symbol.startsWith('0') || stock.symbol.startsWith('3')) {
+                    market = '深圳证券交易所';
+                }
+            }
+            document.getElementById('stockMarket').textContent = market;
+            document.getElementById('stockSource').textContent = stock.data_source || '-';
+
+            resultCard.classList.add('show');
+        }
+
+        document.addEventListener('click', function(e) {
+            if (!suggestions.contains(e.target) && e.target !== searchInput) {
+                suggestions.classList.remove('show');
+            }
+        });
+    </script>
+</body>
+</html>

@@ -267,6 +267,8 @@ class DataManager:
             df['symbol'] = symbol
             df['data_source'] = source
             
+            df = df.drop_duplicates(subset=['symbol', 'date'], keep='first')
+            
             cursor = conn.cursor()
             cursor.execute('''
                 DELETE FROM daily_data 
@@ -302,6 +304,7 @@ class DataManager:
         
         results = {'success': [], 'failed': [], 'skipped': [], 'total': len(symbols)}
         all_data = []
+        failed_symbols = []  # 用于记录失败的股票代码
         
         if self.data_source is None:
             self.data_source = DataSourceFactory.create_source(source)
@@ -321,15 +324,38 @@ class DataManager:
                     all_data.append(df)
             else:
                 try:
-                    df = self.data_source.get_daily_data(symbol, start_date, end_date)
+                    # 判断是否为可转债
+                    is_convertible = symbol.lower().startswith(('sh.110', 'sh.113', 'sz.127', 'sz.128'))
+                    
+                    if is_convertible:
+                        # 使用 AKShare 下载可转债数据
+                        if self.bond_source is None:
+                            try:
+                                from utils.datasources import AKShareBondDataSource
+                                self.bond_source = AKShareBondDataSource()
+                                self.bond_source.initialize()
+                            except Exception as e:
+                                print(f"⚠️  初始化可转债数据源失败: {e}")
+                                results['skipped'].append({'symbol': symbol, 'reason': '可转债数据源初始化失败'})
+                                continue
+                        
+                        df = self.bond_source.get_daily_data(symbol, start_date, end_date)
+                        data_source_name = 'akshare_bond'
+                    else:
+                        df = self.data_source.get_daily_data(symbol, start_date, end_date)
+                        data_source_name = source
                     
                     if df.empty:
-                        results['failed'].append({'symbol': symbol, 'error': '未获取到数据'})
+                        if is_convertible:
+                            results['skipped'].append({'symbol': symbol, 'reason': '可转债，AKShare未获取到数据'})
+                        else:
+                            failed_symbols.append(symbol)
+                            results['failed'].append({'symbol': symbol, 'error': '未获取到数据'})
                         continue
                     
                     df['date'] = df.index.strftime('%Y-%m-%d')
                     df['symbol'] = symbol
-                    df['data_source'] = source
+                    df['data_source'] = data_source_name
                     
                     conn = self._connect()
                     cursor = conn.cursor()
@@ -353,7 +379,10 @@ class DataManager:
                         all_data.append(df)
                 
                 except Exception as e:
+                    failed_symbols.append(symbol)  # 记录失败的股票
                     results['failed'].append({'symbol': symbol, 'error': str(e)})
+        
+        print()  # 换行
         
         # 合并所有股票数据为一个 CSV 文件
         if all_data:
@@ -362,7 +391,7 @@ class DataManager:
             csv_filename = self._save_to_csv(all_df, source, start_date, end_date, 'all')
             results['csv_file'] = csv_filename
         
-        return results
+        return results, failed_symbols
     
     def _save_to_csv(self, df, source, start_date, end_date, symbol='all'):
         """保存数据到 CSV 文件"""

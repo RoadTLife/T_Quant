@@ -104,24 +104,28 @@ def cmd_download(args):
     
     if hasattr(args, 'all') and args.all:
         print_info(f"正在下载所有股票数据 ({args.start} ~ {args.end})...")
-        results = dm.download_all_stocks(args.start, args.end, args.source)
+        results, failed_symbols = dm.download_all_stocks(args.start, args.end, args.source)
         
-        print("\n下载结果:")
-        print(f"  成功: {len(results['success'])} 只股票")
-        for item in results['success']:
-            print(f"    {item['symbol']}: {item['message']}")
+        print("\n" + "=" * 60)
+        print("下载统计")
+        print("=" * 60)
+        print(f"总股票数: {len(results.get('success', [])) + len(results.get('failed', [])) + len(results.get('skipped', []))}")
+        print(f"成功下载: {len(results.get('success', []))} 只")
+        print(f"本地已有: {len(results.get('skipped', []))} 只")
+        print(f"下载失败: {len(results.get('failed', []))} 只")
+        print("=" * 60)
         
-        print(f"  跳过: {len(results['skipped'])} 只股票")
-        for item in results['skipped']:
-            print(f"    {item['symbol']}: {item['reason']}")
+        if failed_symbols:
+            print("\n下载失败的股票代码 (前50个):")
+            for i, symbol in enumerate(failed_symbols[:50]):
+                print(f"  {symbol}")
+            if len(failed_symbols) > 50:
+                print(f"  ... 还有 {len(failed_symbols) - 50} 只未显示")
         
-        if results['failed']:
-            print(f"  失败: {len(results['failed'])} 只股票")
-            for item in results['failed']:
-                print(f"    {item['symbol']}: {item['error']}")
+        if 'csv_file' in results and results['csv_file']:
+            print(f"\n✅ CSV 文件已保存: {results['csv_file']}")
         
-        if 'csv_file' in results:
-            print(f"\nCSV 文件已保存: {results['csv_file']}")
+        print("=" * 60)
     else:
         valid, msg = validate_stock_symbol(args.symbol)
         if not valid:

@@ -77,11 +77,28 @@ class BaostockDataSource(BaseDataSource):
             logger.error(f"获取股票列表失败: {e}")
             return pd.DataFrame()
     
+    def _is_convertible_bond(self, symbol):
+        """判断是否为可转债"""
+        symbol = str(symbol).lower()
+        # 可转债代码特征
+        convertible_patterns = [
+            'sh.110', 'sh.113',  # 上海可转债
+            'sz.127', 'sz.128'   # 深圳可转债
+        ]
+        for pattern in convertible_patterns:
+            if symbol.startswith(pattern):
+                return True
+        return False
+    
     def get_daily_data(self, symbol, start_date, end_date, adjust='qfq'):
         if not self.initialized:
             self.initialize()
         
         try:
+            if self._is_convertible_bond(symbol):
+                logger.warning(f"跳过可转债 {symbol}，Baostock 不支持可转债数据")
+                return pd.DataFrame()
+            
             symbol_clean = self._clean_symbol(symbol)
             adjust_flag = self._get_adjust_flag(adjust)
             
