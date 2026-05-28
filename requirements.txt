@@ -1,7 +1,23 @@
+# 核心数据处理
 pandas==2.1.4
 numpy==1.26.3
+
+# 可视化
 matplotlib==3.8.2
 plotly==5.18.0
+
+# 配置和测试
 pyyaml==6.0.1
 pytest==7.4.4
+
+# 股票数据
 baostock==0.8.8
+akshare>=1.16.72
+
+# Web 服务
+flask==2.3.3
+
+# 网络请求和解析
+requests==2.31.0
+beautifulsoup4==4.12.2
+lxml==4.9.3
