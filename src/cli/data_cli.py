@@ -16,8 +16,8 @@ Usage:
 
 import argparse
 import sys
-from utils.data_manager import DataManager
-from utils.cli_utils import (
+from src.utils.data_manager import DataManager
+from src.utils.cli_utils import (
     print_table, print_title, print_success, print_error, 
     print_info, exit_with_error, validate_date, validate_time, validate_stock_symbol
 )

@@ -1,8 +1,8 @@
-from strategies.moving_average import MovingAverageStrategy
-from backtest.engine import BackTestEngine
-from trading.broker import Broker
-from utils.data_manager import DataManager
-from utils.cli_utils import print_title, print_error, print_info
+from src.strategies.moving_average import MovingAverageStrategy
+from src.backtest.engine import BackTestEngine
+from src.trading.broker import Broker
+from src.utils.data_manager import DataManager
+from src.utils.cli_utils import print_title, print_error, print_info
 import pandas as pd
 import os
 

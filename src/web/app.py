@@ -6,10 +6,23 @@
 from flask import Flask, render_template, request, jsonify
 import pandas as pd
 import os
+import yaml
 
 app = Flask(__name__)
 
-STOCK_LIST_FILE = 'data/basic/stock_list.csv'
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+STOCK_LIST_FILE = os.path.join(BASE_DIR, 'data/basic/stock_list.csv')
+
+def load_config():
+    """加载配置文件"""
+    config_path = os.path.join(BASE_DIR, 'config.yaml')
+    if os.path.exists(config_path):
+        with open(config_path, 'r') as f:
+            return yaml.safe_load(f)
+    return {}
+
+config = load_config()
+server_config = config.get('server', {})
 
 def load_stock_list():
     """加载股票列表"""
@@ -60,4 +73,9 @@ def get_stock_detail(symbol):
     return jsonify(result.iloc[0].to_dict())
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    port = server_config.get('port', 5001)
+    host = server_config.get('host', '0.0.0.0')
+    debug = server_config.get('debug', True)
+    
+    print(f"启动服务器: http://{host}:{port}")
+    app.run(debug=debug, host=host, port=port)

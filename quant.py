@@ -76,12 +76,12 @@ def main():
 def execute_command(args):
     """执行命令"""
     if args.command == 'gui':
-        from data_manager_gui import DataManagerGUI
+        from src.cli.data_manager_gui import DataManagerGUI
         gui = DataManagerGUI()
         gui.run()
         return
     
-    from data_cli import (
+    from src.cli.data_cli import (
         cmd_list, cmd_summary, cmd_detail, cmd_add,
         cmd_download, cmd_scan, cmd_fix, cmd_sync, cmd_schedule
     )
@@ -106,7 +106,7 @@ def execute_command(args):
         try:
             commands[args.command](args)
         except Exception as e:
-            from utils.cli_utils import exit_with_error
+            from src.utils.cli_utils import exit_with_error
             exit_with_error(f"执行失败: {e}")
     else:
         print(f"未知命令: {args.command}")

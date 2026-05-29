@@ -5,8 +5,8 @@
 提供菜单式操作界面，方便用户管理股票数据
 """
 
-from utils.data_manager import DataManager
-from utils.cli_utils import (
+from src.utils.data_manager import DataManager
+from src.utils.cli_utils import (
     print_table, print_title, print_success, print_error, 
     print_info, print_warning, get_input, validate_date, 
     validate_time, validate_stock_symbol
