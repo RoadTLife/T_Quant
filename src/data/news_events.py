@@ -51,7 +51,9 @@ def safe_print(msg):
     with _print_lock:
         print(msg)
 
-
+# 优化点 TODO
+# 1、可以优化为正则表达式匹配，提高效率
+# 2、可以用nlp进行分析利多还是利空
 def analyze_sentiment(title):
     for word in POSITIVE_WORDS:
         if word in title:
@@ -76,7 +78,10 @@ def check_important(title):
 def get_all_stocks():
     """获取全量股票列表"""
     rows = execute_query("SELECT DISTINCT stock_code FROM trade_stock_daily")
-    return [r['stock_code'] for r in rows]
+    stock_list = [r['stock_code'] for r in rows]
+    if not stock_list:
+        raise RuntimeError("获取股票列表失败，无任何股票数据，请检查 trade_stock_daily 表")
+    return stock_list
 
 
 def get_today_collected():
@@ -210,8 +215,11 @@ def main():
         print("跳过当日已采集: {} 只, 待采集: {} 只".format(len(collected), len(stock_list)))
 
     if not stock_list:
-        print("全部股票当日已采集，无需再跑")
-        return
+        if len(collected) > 0:
+            print("全部股票当日已采集，无需再跑")
+            return
+        else:
+            raise RuntimeError("待采集股票列表为空，请检查数据源")
 
     # 预加载已有标题到内存（一次查询，后续不再逐条查库）
     print("加载已有标题用于去重...")

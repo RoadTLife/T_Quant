@@ -17,6 +17,11 @@ python-dotenv>=1.0.0
 # 股票数据
 baostock==0.8.8
 akshare>=1.16.72
+xtquant>=1.0.0          # MiniQMT 量化交易（market_data, financial_data）
+
+# AI/LLM
+openai>=1.0.0           # OpenAI 客户端（catalysts.py 调用通义千问）
+dashscope>=1.10.0      # 阿里云百炼 API（catalysts.py）
 
 # Web 服务
 flask==2.3.3
