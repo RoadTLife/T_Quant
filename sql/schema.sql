@@ -1,29 +1,7 @@
--- ============================================================
--- 量化交易数据库 trade
--- MySQL 8.0 | 统一维护文件
--- 更新: 2026-02-12
--- ============================================================
-
--- 创建数据库（如不存在）
 CREATE DATABASE IF NOT EXISTS trade DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 USE trade;
 
--- ************************************************************
--- 核心数据表
--- ************************************************************
-
---- ============================================================
--- 量化交易数据库 trade
--- MySQL 8.0 | 统一维护文件
--- 更新: 2026-02-12
--- ============================================================
-
--- ************************************************************
--- Charles 数据表 
--- ************************************************************
-
--- 日K线数据表 (核心行情数据，数据量最大)
 CREATE TABLE IF NOT EXISTS trade_stock_daily (
     id INT AUTO_INCREMENT PRIMARY KEY,
     stock_code VARCHAR(20) NOT NULL COMMENT '股票代码',
@@ -41,7 +19,6 @@ CREATE TABLE IF NOT EXISTS trade_stock_daily (
     KEY idx_stock_daily_date (trade_date)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='日K线数据';
 
--- 新闻事件表
 CREATE TABLE IF NOT EXISTS trade_stock_news (
     id INT AUTO_INCREMENT PRIMARY KEY,
     stock_code VARCHAR(20) COMMENT '股票代码',
@@ -63,11 +40,10 @@ CREATE TABLE IF NOT EXISTS trade_stock_news (
     KEY idx_stock_news_type (news_type)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='新闻事件';
 
--- 季度财务数据表
 CREATE TABLE IF NOT EXISTS trade_stock_financial (
     id INT AUTO_INCREMENT PRIMARY KEY,
     stock_code VARCHAR(20) NOT NULL,
-    report_date DATE NOT NULL COMMENT '报告期，如 2024-12-31',
+    report_date DATE NOT NULL COMMENT '报告期',
     revenue DECIMAL(20,2) COMMENT '营业收入(元)',
     net_profit DECIMAL(20,2) COMMENT '净利润(元)',
     eps DECIMAL(10,4) COMMENT '每股收益',
@@ -86,7 +62,6 @@ CREATE TABLE IF NOT EXISTS trade_stock_financial (
     KEY idx_fina_code (stock_code)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='季度财务数据';
 
--- 月度宏观指标表
 CREATE TABLE IF NOT EXISTS trade_macro_indicator (
     id INT AUTO_INCREMENT PRIMARY KEY,
     indicator_date DATE NOT NULL COMMENT '指标月份(月末日期)',
@@ -102,7 +77,6 @@ CREATE TABLE IF NOT EXISTS trade_macro_indicator (
     UNIQUE KEY idx_macro_date (indicator_date)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='月度宏观指标';
 
--- 日频利率指标表(国债收益率等)
 CREATE TABLE IF NOT EXISTS trade_rate_daily (
     id INT AUTO_INCREMENT PRIMARY KEY,
     rate_date DATE NOT NULL COMMENT '日期',
@@ -113,7 +87,6 @@ CREATE TABLE IF NOT EXISTS trade_rate_daily (
     UNIQUE KEY idx_rate_date (rate_date)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='日频利率指标';
 
--- 研报一致性预期表
 CREATE TABLE IF NOT EXISTS trade_report_consensus (
     id INT AUTO_INCREMENT PRIMARY KEY,
     stock_code VARCHAR(20) NOT NULL,
@@ -130,7 +103,6 @@ CREATE TABLE IF NOT EXISTS trade_report_consensus (
     KEY idx_consensus_code (stock_code)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='研报一致性预期';
 
--- 财经日历事件表
 CREATE TABLE IF NOT EXISTS trade_calendar_event (
     id INT AUTO_INCREMENT PRIMARY KEY,
     event_date DATE NOT NULL COMMENT '事件日期',
@@ -147,13 +119,91 @@ CREATE TABLE IF NOT EXISTS trade_calendar_event (
     source VARCHAR(50) COMMENT 'eastmoney/fred/manual',
     source_url VARCHAR(500),
     is_recurring TINYINT DEFAULT 0,
-    recurrence_rule VARCHAR(100) COMMENT '周期规则，如"每月第一个周五"',
+    recurrence_rule VARCHAR(100) COMMENT '周期规则',
     status VARCHAR(20) DEFAULT 'upcoming' COMMENT 'upcoming/released/cancelled',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    UNIQUE KEY idx_calendar_date_title (event_date, title),
+    updated_at DATETIME ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY idx_calendar_event (event_date, country, title),
     KEY idx_calendar_date (event_date),
     KEY idx_calendar_country (country),
-    KEY idx_calendar_category (category),
-    KEY idx_calendar_importance (importance)
+    KEY idx_calendar_category (category)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='财经日历事件';
+
+CREATE TABLE IF NOT EXISTS trade_stock_basic (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    stock_code VARCHAR(20) NOT NULL COMMENT '股票代码',
+    stock_name VARCHAR(50) COMMENT '股票名称',
+    exchange VARCHAR(20) COMMENT '交易所(SSE/SZSE)',
+    industry VARCHAR(50) COMMENT '行业',
+    sector VARCHAR(50) COMMENT '板块',
+    listed_date DATE COMMENT '上市日期',
+    total_shares DECIMAL(20,0) COMMENT '总股本(股)',
+    float_shares DECIMAL(20,0) COMMENT '流通股本(股)',
+    is_st TINYINT DEFAULT 0 COMMENT '是否ST',
+    is_hk TINYINT DEFAULT 0 COMMENT '是否港股',
+    data_source VARCHAR(20) DEFAULT 'baostock',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY idx_stock_code (stock_code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='股票基础信息';
+
+CREATE TABLE IF NOT EXISTS trade_backtest_result (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    strategy_name VARCHAR(50) NOT NULL COMMENT '策略名称',
+    stock_code VARCHAR(20) NOT NULL COMMENT '股票代码',
+    start_date DATE NOT NULL COMMENT '回测开始日期',
+    end_date DATE NOT NULL COMMENT '回测结束日期',
+    initial_capital DECIMAL(15,2) COMMENT '初始资金',
+    final_capital DECIMAL(15,2) COMMENT '最终资金',
+    total_return DECIMAL(10,4) COMMENT '总收益率',
+    annualized_return DECIMAL(10,4) COMMENT '年化收益率',
+    max_drawdown DECIMAL(10,4) COMMENT '最大回撤',
+    sharpe_ratio DECIMAL(10,4) COMMENT '夏普比率',
+    win_rate DECIMAL(10,4) COMMENT '胜率',
+    total_trades INT COMMENT '交易次数',
+    profit_factor DECIMAL(10,4) COMMENT '盈利因子',
+    strategy_params TEXT COMMENT '策略参数(JSON)',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_backtest_strategy (strategy_name),
+    KEY idx_backtest_code (stock_code),
+    KEY idx_backtest_date (start_date, end_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='策略回测结果';
+
+CREATE TABLE IF NOT EXISTS trade_signal (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    strategy_name VARCHAR(50) NOT NULL COMMENT '策略名称',
+    stock_code VARCHAR(20) NOT NULL COMMENT '股票代码',
+    signal_date DATE NOT NULL COMMENT '信号日期',
+    signal_type VARCHAR(20) NOT NULL COMMENT 'buy/sell/hold',
+    signal_strength DECIMAL(5,2) COMMENT '信号强度(0-1)',
+    confidence DECIMAL(5,2) COMMENT '置信度(0-1)',
+    price DECIMAL(10,2) COMMENT '信号触发价格',
+    stop_loss DECIMAL(10,2) COMMENT '止损价',
+    take_profit DECIMAL(10,2) COMMENT '止盈价',
+    notes TEXT COMMENT '备注',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY idx_signal_unique (strategy_name, stock_code, signal_date),
+    KEY idx_signal_code (stock_code),
+    KEY idx_signal_date (signal_date),
+    KEY idx_signal_type (signal_type)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='交易信号';
+
+CREATE TABLE IF NOT EXISTS trade_operation_log (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    operation_type VARCHAR(30) NOT NULL COMMENT '操作类型',
+    operator VARCHAR(50) COMMENT '操作人',
+    target_type VARCHAR(30) COMMENT '操作对象类型',
+    target_id VARCHAR(100) COMMENT '操作对象ID',
+    description TEXT COMMENT '操作描述',
+    before_data TEXT COMMENT '操作前数据(JSON)',
+    after_data TEXT COMMENT '操作后数据(JSON)',
+    ip_address VARCHAR(50) COMMENT 'IP地址',
+    user_agent VARCHAR(200) COMMENT '用户代理',
+    success TINYINT DEFAULT 1 COMMENT '是否成功',
+    error_message TEXT COMMENT '错误信息',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_operation_type (operation_type),
+    KEY idx_operation_time (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='操作日志';
+
+SELECT 'Tables created successfully in database: trade' AS result;

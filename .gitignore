@@ -141,3 +141,6 @@ data/tushare/
 
 # Output files
 outputs/
+
+# MySQL data directory
+mysql_data/
