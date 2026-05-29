@@ -25,8 +25,16 @@ import os
 import pandas as pd
 import akshare as ak
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from db_config import get_connection, execute_query
+# 添加项目根目录到路径
+def _add_project_root():
+    current_file = os.path.abspath(__file__)
+    # src/data/macro_data.py -> 向上三级到项目根目录
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(current_file)))
+    if project_root not in sys.path:
+        sys.path.insert(0, project_root)
+
+_add_project_root()
+from src.conf.db_config import get_connection, execute_query
 
 
 def _parse_cn_date(series):

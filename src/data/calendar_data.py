@@ -8,7 +8,7 @@
 数据源：AkShare news_economic_baidu()
   返回列: 日期, 时间, 国家, 事件, 实际, 预期, 前值, 重要性
 
-运行：python 6-财经日历采集.py
+运行：python calendar_data.py
 """
 import sys
 import os
@@ -16,8 +16,16 @@ import math
 import pandas as pd
 import akshare as ak
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from conf.db_config import get_connection
+# 添加项目根目录到路径
+def _add_project_root():
+    current_file = os.path.abspath(__file__)
+    # src/data/calendar_data.py -> 向上三级到项目根目录
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(current_file)))
+    if project_root not in sys.path:
+        sys.path.insert(0, project_root)
+
+_add_project_root()
+from src.conf.db_config import get_connection
 
 if sys.platform == 'win32' and hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8')
@@ -168,7 +176,7 @@ def main():
     print("\n写入/更新 {} 条事件".format(count))
 
     # 统计
-    from conf.db_config import execute_query
+    from src.conf.db_config import execute_query
     rows = execute_query("""
         SELECT country, COUNT(*) as cnt,
                MIN(event_date) as min_d, MAX(event_date) as max_d

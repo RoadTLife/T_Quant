@@ -147,6 +147,42 @@ CREATE TABLE IF NOT EXISTS trade_stock_basic (
     UNIQUE KEY idx_stock_code (stock_code)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='股票基础信息';
 
+CREATE TABLE IF NOT EXISTS trade_stock_ipo (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    ipo_month DATE NOT NULL COMMENT '发行月份(月末日期)',
+    ipo_count INT COMMENT '新股数量',
+    total_amount DECIMAL(15,2) COMMENT '募集资金总额(亿元)',
+    avg_amount DECIMAL(10,2) COMMENT '平均募资(亿元)',
+    max_amount DECIMAL(10,2) COMMENT '最大募资(亿元)',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY idx_ipo_month (ipo_month),
+    KEY idx_ipo_date (ipo_month)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='A股新股发行统计';
+
+CREATE TABLE IF NOT EXISTS trade_stock_ipo_detail (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    stock_code VARCHAR(20) COMMENT '股票代码',
+    stock_name VARCHAR(50) COMMENT '股票简称',
+    listed_date DATE COMMENT '上市日期',
+    subscribe_date DATE COMMENT '申购日期',
+    issue_price DECIMAL(10,2) COMMENT '发行价(元)',
+    issue_volume DECIMAL(20,4) COMMENT '总发行数量(万股)',
+    online_volume DECIMAL(20,4) COMMENT '上网发行数量(万股)',
+    issue_pe DECIMAL(10,2) COMMENT '发行市盈率',
+    subscription_rate DECIMAL(10,6) COMMENT '上网发行中签率',
+    financing_amount DECIMAL(20,2) COMMENT '拟融资额(元)',
+    listing_board VARCHAR(20) COMMENT '上市板块',
+    underwriter VARCHAR(100) COMMENT '主承销商',
+    sponsor VARCHAR(100) COMMENT '保荐机构',
+    review_status VARCHAR(20) COMMENT '审核状态',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY idx_ipo_detail_code_date (stock_code, listed_date),
+    KEY idx_ipo_detail_code (stock_code),
+    KEY idx_ipo_detail_date (listed_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='A股新股发行详情';
+
 CREATE TABLE IF NOT EXISTS trade_backtest_result (
     id INT AUTO_INCREMENT PRIMARY KEY,
     strategy_name VARCHAR(50) NOT NULL COMMENT '策略名称',

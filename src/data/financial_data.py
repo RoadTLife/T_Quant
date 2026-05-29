@@ -21,7 +21,7 @@
   - TEST_MODE = True  -> 只采集1只股票(贵州茅台)
   - TEST_MODE = False -> 采集沪深A股全量
 
-运行：python 2-财务数据采集.py
+运行：python financial_data.py
 环境：需安装QMT并配置好xtquant, pip install pymysql python-dotenv
 """
 import sys
@@ -32,8 +32,16 @@ from datetime import datetime, date
 import pandas as pd
 from xtquant import xtdata
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from db_config import get_connection, execute_query
+# 添加项目根目录到路径
+def _add_project_root():
+    current_file = os.path.abspath(__file__)
+    # src/data/financial_data.py -> 向上三级到项目根目录
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(current_file)))
+    if project_root not in sys.path:
+        sys.path.insert(0, project_root)
+
+_add_project_root()
+from src.conf.db_config import get_connection, execute_query
 
 if sys.platform == 'win32' and hasattr(sys.stdout, 'reconfigure'):
     try:

@@ -7,7 +7,7 @@
 去重方式：按标题去重（批量预加载已有标题到内存，避免逐条查库）
 跳过逻辑：当日已采集过的股票跳过
 
-运行：python 4-新闻事件采集.py
+运行：python news_events.py
 """
 import sys
 import os
@@ -17,8 +17,16 @@ import akshare as ak
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from db_config import get_connection, execute_query
+# 添加项目根目录到路径
+def _add_project_root():
+    current_file = os.path.abspath(__file__)
+    # src/data/news_events.py -> 向上三级到项目根目录
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(current_file)))
+    if project_root not in sys.path:
+        sys.path.insert(0, project_root)
+
+_add_project_root()
+from src.conf.db_config import get_connection, execute_query
 
 if sys.platform == 'win32' and hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8')

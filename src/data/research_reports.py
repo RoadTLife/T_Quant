@@ -17,7 +17,7 @@
 采集范围：trade_stock_daily 中所有股票
 跳过逻辑：7天内已采集的股票跳过
 
-运行：python 5-研报数据采集.py
+运行：python research_reports.py
 """
 import sys
 import os
@@ -29,8 +29,16 @@ from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from db_config import get_connection, execute_query
+# 添加项目根目录到路径
+def _add_project_root():
+    current_file = os.path.abspath(__file__)
+    # src/data/research_reports.py -> 向上三级到项目根目录
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(current_file)))
+    if project_root not in sys.path:
+        sys.path.insert(0, project_root)
+
+_add_project_root()
+from src.conf.db_config import get_connection, execute_query
 
 if sys.platform == 'win32' and hasattr(sys.stdout, 'reconfigure'):
     try:

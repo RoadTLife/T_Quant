@@ -5,7 +5,7 @@
 搜索未来6个月对A股有重大影响的催化剂事件（两会、FOMC、非农等）
 写入 trade_calendar_event 表，importance >= 2
 
-运行：python 8-关键催化剂采集.py
+运行：python catalysts.py
 """
 import sys
 import os
@@ -14,8 +14,16 @@ import yaml
 from datetime import datetime, timedelta
 from openai import OpenAI
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from db_config import get_connection, DASHSCOPE_API_KEY
+# 添加项目根目录到路径
+def _add_project_root():
+    current_file = os.path.abspath(__file__)
+    # src/data/catalysts.py -> 向上三级到项目根目录
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(current_file)))
+    if project_root not in sys.path:
+        sys.path.insert(0, project_root)
+
+_add_project_root()
+from src.conf.db_config import get_connection, DASHSCOPE_API_KEY
 
 if sys.platform == 'win32' and hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8')
