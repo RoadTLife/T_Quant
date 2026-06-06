@@ -49,6 +49,11 @@ def get_catalysts_collector():
     from .catalysts import CatalystsCollector
     return CatalystsCollector
 
+def get_data_manager():
+    """获取数据管理器"""
+    from .data_manager import DataManager
+    return DataManager
+
 __all__ = [
     'get_market_data_collector',
     'get_financial_data_collector',
@@ -56,5 +61,6 @@ __all__ = [
     'get_news_events_collector',
     'get_research_reports_collector',
     'get_calendar_data_collector',
-    'get_catalysts_collector'
+    'get_catalysts_collector',
+    'get_data_manager'
 ]

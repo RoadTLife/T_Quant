@@ -41,9 +41,9 @@ class StockCodeFinder:
             # 确保symbol和name列存在
             if 'symbol' not in self._stock_data.columns or 'name' not in self._stock_data.columns:
                 raise ValueError("股票列表文件格式不正确，缺少 symbol 或 name 列")
-            print(f"✓ 已加载 {len(self._stock_data)} 条股票数据")
+            print(f"[OK] 已加载 {len(self._stock_data)} 条股票数据")
         except Exception as e:
-            print(f"✗ 加载股票列表失败: {e}")
+            print(f"[FAIL] 加载股票列表失败: {e}")
             raise
     
     def get_code_by_name(self, stock_name: str, exact_match: bool = False) -> Optional[str]:
