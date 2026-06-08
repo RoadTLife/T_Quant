@@ -44,7 +44,7 @@ class ConfigLoader:
         try:
             with open(config_path, 'r', encoding='utf-8') as f:
                 self._main_config = yaml.safe_load(f)
-            print(f"✓ 已加载主配置文件: {config_path}")
+            print(f"[OK] 已加载主配置文件: {config_path}")
         except Exception as e:
             raise ConfigError(f"加载主配置文件失败: {e}")
     
@@ -71,7 +71,7 @@ class ConfigLoader:
         try:
             with open(config_path, 'r', encoding='utf-8') as f:
                 self._config = yaml.safe_load(f)
-            print(f"✓ 已加载回测配置文件: {config_path}")
+            print(f"[OK] 已加载回测配置文件: {config_path}")
         except Exception as e:
             raise ConfigError(f"加载回测配置文件失败: {e}")
     
