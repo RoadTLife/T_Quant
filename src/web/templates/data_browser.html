@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据模块浏览器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f7fa;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 24px 32px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 1.8rem;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 0.95rem;
+        }
+
+        .nav-tabs {
+            display: flex;
+            gap: 16px;
+            padding: 16px 32px;
+            background: white;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .nav-tab {
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            color: #666;
+            transition: all 0.3s ease;
+        }
+
+        .nav-tab.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .nav-tab:hover:not(.active) {
+            background: #f0f0f0;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        .module-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 20px;
+        }
+
+        .module-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .module-card:hover {
+            box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+        }
+
+        .module-header {
+            padding: 20px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .module-header .module-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+
+        .module-title h3 {
+            font-size: 1.1rem;
+            color: #333;
+        }
+
+        .module-status {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .module-status.exists {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .module-status.missing {
+            background: #ffebee;
+            color: #c62828;
+        }
+
+        .module-desc {
+            font-size: 0.85rem;
+            color: #666;
+            line-height: 1.5;
+        }
+
+        .module-deps {
+            padding: 16px 20px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .deps-title {
+            font-size: 0.75rem;
+            color: #999;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .deps-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .dep-tag {
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+        }
+
+        .dep-tag.ok {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .dep-tag.missing {
+            background: #fff3e0;
+            color: #f57c00;
+        }
+
+        .module-functions {
+            padding: 16px 20px;
+        }
+
+        .func-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .func-title {
+            font-size: 0.75rem;
+            color: #999;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .func-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .func-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .func-item:hover {
+            background: #f0f0f0;
+        }
+
+        .func-name {
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .func-desc {
+            font-size: 0.75rem;
+            color: #999;
+        }
+
+        .module-actions {
+            padding: 16px 20px;
+            background: #fafafa;
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 10px 16px;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5a6fd6;
+        }
+
+        .btn-primary:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #666;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+
+        /* 结果弹窗 */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        .modal {
+            background: white;
+            border-radius: 16px;
+            width: 90%;
+            max-width: 800px;
+            max-height: 80vh;
+            overflow: hidden;
+        }
+
+        .modal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h3 {
+            font-size: 1.1rem;
+            color: #333;
+        }
+
+        .modal-close {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: none;
+            background: #f0f0f0;
+            cursor: pointer;
+            font-size: 1.2rem;
+            color: #666;
+        }
+
+        .modal-body {
+            padding: 24px;
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+
+        .result-success {
+            background: #e8f5e9;
+            border-left: 4px solid #4caf50;
+            padding: 16px;
+            border-radius: 0 8px 8px 0;
+            margin-bottom: 20px;
+        }
+
+        .result-error {
+            background: #ffebee;
+            border-left: 4px solid #f44336;
+            padding: 16px;
+            border-radius: 0 8px 8px 0;
+            margin-bottom: 20px;
+        }
+
+        .result-message {
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+
+        .result-details {
+            font-size: 0.85rem;
+            color: #666;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .result-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+
+        .result-table th,
+        .result-table td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .result-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #666;
+        }
+
+        .result-json {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 16px;
+            border-radius: 8px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.8rem;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #667eea;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 0.8s linear infinite;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+
+        .empty-state svg {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .stats-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            margin-bottom: 20px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 20px;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 4px;
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            color: #999;
+        }
+
+        @media (max-width: 600px) {
+            .header {
+                padding: 16px 20px;
+            }
+
+            .header h1 {
+                font-size: 1.4rem;
+            }
+
+            .nav-tabs {
+                padding: 12px 16px;
+                overflow-x: auto;
+            }
+
+            .nav-tab {
+                padding: 8px 14px;
+                font-size: 0.85rem;
+            }
+
+            .container {
+                padding: 16px;
+            }
+
+            .module-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .module-actions {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📊 数据模块浏览器</h1>
+        <p>查看和管理数据采集模块，执行数据采集任务</p>
+    </div>
+
+    <div class="nav-tabs">
+        <div class="nav-tab active" data-tab="modules">模块列表</div>
+        <div class="nav-tab" data-tab="results">执行记录</div>
+    </div>
+
+    <div class="container">
+        <div class="tab-content active" id="modules-tab">
+            <div class="stats-card">
+                <div class="stats-grid" id="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-value" id="stat-modules">0</div>
+                        <div class="stat-label">总模块数</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="stat-ready">0</div>
+                        <div class="stat-label">可执行</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="stat-deps-ok">0</div>
+                        <div class="stat-label">依赖完整</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="stat-deps-missing">0</div>
+                        <div class="stat-label">依赖缺失</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="module-grid" id="module-grid">
+                <div class="empty-state">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                        <circle cx="12" cy="7" r="4"/>
+                    </svg>
+                    <p>加载中...</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-content" id="results-tab">
+            <div class="empty-state" id="results-empty">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                    <line x1="16" y1="13" x2="8" y2="13"/>
+                    <line x1="16" y1="17" x2="8" y2="17"/>
+                    <polyline points="10 9 9 9 8 9"/>
+                </svg>
+                <p>暂无执行记录</p>
+            </div>
+            <div id="results-list"></div>
+        </div>
+    </div>
+
+    <!-- 结果弹窗 -->
+    <div class="modal-overlay" id="result-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="modal-title">执行结果</h3>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="modal-body">
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let modules = [];
+        let executionResults = [];
+
+        async function loadModules() {
+            try {
+                const response = await fetch('/api/data-modules');
+                modules = await response.json();
+                renderModules();
+                updateStats();
+            } catch (error) {
+                console.error('加载模块失败:', error);
+                document.getElementById('module-grid').innerHTML = `
+                    <div class="empty-state">
+                        <p>加载模块列表失败: ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        function updateStats() {
+            const total = modules.length;
+            const ready = modules.filter(m => m.exists && m.dependencies.all_satisfied).length;
+            const depsOk = modules.filter(m => m.dependencies.all_satisfied).length;
+            const depsMissing = modules.filter(m => m.dependencies.missing.length > 0).length;
+
+            document.getElementById('stat-modules').textContent = total;
+            document.getElementById('stat-ready').textContent = ready;
+            document.getElementById('stat-deps-ok').textContent = depsOk;
+            document.getElementById('stat-deps-missing').textContent = depsMissing;
+        }
+
+        function renderModules() {
+            const grid = document.getElementById('module-grid');
+            
+            if (modules.length === 0) {
+                grid.innerHTML = `
+                    <div class="empty-state">
+                        <p>未找到任何数据模块</p>
+                    </div>
+                `;
+                return;
+            }
+
+            grid.innerHTML = modules.map(module => `
+                <div class="module-card">
+                    <div class="module-header">
+                        <div class="module-title">
+                            <h3>${module.name}</h3>
+                            <span class="module-status ${module.exists ? 'exists' : 'missing'}">
+                                ${module.exists ? '已存在' : '缺失'}
+                            </span>
+                        </div>
+                        <p class="module-desc">${module.description}</p>
+                    </div>
+                    
+                    <div class="module-deps">
+                        <div class="deps-title">依赖</div>
+                        <div class="deps-list">
+                            ${module.dependencies.required.map(dep => `
+                                <span class="dep-tag ${module.dependencies.ok.includes(dep) ? 'ok' : 'missing'}">
+                                    ${dep}
+                                </span>
+                            `).join('')}
+                        </div>
+                    </div>
+                    
+                    <div class="module-functions">
+                        <div class="func-header">
+                            <span class="func-title">可用函数</span>
+                            <span style="font-size:0.75rem;color:#999">${module.functions.length} 个</span>
+                        </div>
+                        <div class="func-list">
+                            ${module.functions.map(func => `
+                                <div class="func-item" onclick="testFunction('${module.module}', '${func.name}')">
+                                    <span class="func-name">${func.name}</span>
+                                    <span class="func-desc">${func.desc}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    
+                    <div class="module-actions">
+                        <button 
+                            class="btn btn-primary" 
+                            onclick="executeModule('${module.module}')"
+                            ${!module.exists || !module.dependencies.all_satisfied ? 'disabled' : ''}
+                        >
+                            执行采集
+                        </button>
+                        <button 
+                            class="btn btn-secondary" 
+                            onclick="viewModuleInfo('${module.module}')"
+                        >
+                            详情
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function executeModule(moduleName) {
+            const button = event.target;
+            const originalText = button.textContent;
+            button.innerHTML = '<span class="loading-spinner"></span>执行中...';
+            button.disabled = true;
+
+            try {
+                const response = await fetch(`/api/execute-module/${moduleName}`, {
+                    method: 'POST'
+                });
+                const result = await response.json();
+                
+                // 添加到执行记录
+                executionResults.unshift({
+                    module: moduleName,
+                    time: new Date().toLocaleString('zh-CN'),
+                    success: result.success,
+                    message: result.success ? result.message : result.error
+                });
+                renderResults();
+                
+                // 显示结果弹窗
+                showResultModal(result);
+            } catch (error) {
+                executionResults.unshift({
+                    module: moduleName,
+                    time: new Date().toLocaleString('zh-CN'),
+                    success: false,
+                    message: error.message
+                });
+                renderResults();
+                
+                showResultModal({
+                    success: false,
+                    error: error.message
+                });
+            } finally {
+                button.innerHTML = originalText;
+                button.disabled = false;
+            }
+        }
+
+        async function testFunction(moduleName, funcName) {
+            try {
+                const response = await fetch(`/api/test-module/${moduleName}/${funcName}`, {
+                    method: 'POST'
+                });
+                const result = await response.json();
+                showResultModal(result);
+            } catch (error) {
+                showResultModal({
+                    success: false,
+                    error: error.message
+                });
+            }
+        }
+
+        function viewModuleInfo(moduleName) {
+            const module = modules.find(m => m.module === moduleName);
+            if (!module) return;
+
+            const content = `
+                <h4 style="margin-bottom: 16px; color: #333;">${module.name}</h4>
+                <p style="color: #666; margin-bottom: 16px;">${module.description}</p>
+                
+                <h5 style="margin-bottom: 8px; color: #333;">依赖状态</h5>
+                <div style="margin-bottom: 16px;">
+                    ${module.dependencies.required.map(dep => `
+                        <div style="display: flex; justify-content: space-between; padding: 8px 12px; background: #f8f9fa; margin-bottom: 4px; border-radius: 4px;">
+                            <span>${dep}</span>
+                            <span style="color: ${module.dependencies.ok.includes(dep) ? '#4caf50' : '#f57c00'}">
+                                ${module.dependencies.ok.includes(dep) ? '✓ 已安装' : '✗ 缺失'}
+                            </span>
+                        </div>
+                    `).join('')}
+                </div>
+                
+                <h5 style="margin-bottom: 8px; color: #333;">可用函数</h5>
+                <ul style="margin: 0; padding-left: 20px;">
+                    ${module.functions.map(func => `
+                        <li style="margin-bottom: 4px; color: #666;">
+                            <strong>${func.name}</strong>: ${func.desc}
+                        </li>
+                    `).join('')}
+                </ul>
+            `;
+
+            document.getElementById('modal-title').textContent = `${module.name} - 详情`;
+            document.getElementById('modal-body').innerHTML = content;
+            document.getElementById('result-modal').classList.add('show');
+        }
+
+        function showResultModal(result) {
+            let content = '';
+            
+            if (result.success) {
+                content = `
+                    <div class="result-success">
+                        <div class="result-message">✓ ${result.message || '操作成功'}</div>
+                    </div>
+                `;
+                
+                if (result.data) {
+                    if (result.result_type === 'DataFrame') {
+                        content += `
+                            <h4 style="margin-bottom: 12px;">返回数据（前10行）</h4>
+                            <div style="overflow-x: auto;">
+                                <table class="result-table">
+                                    <thead>
+                                        <tr>
+                                            ${result.sample[0] ? Object.keys(result.sample[0]).map(col => `<th>${col}</th>`).join('') : ''}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${result.sample.map(row => `<tr>${Object.values(row).map(val => `<td>${val}</td>`).join('')}</tr>`).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <p style="margin-top: 8px; font-size: 0.8rem; color: #999;">共 ${result.rows} 行数据</p>
+                        `;
+                    } else if (result.result_type === 'dict' && typeof result.data === 'object') {
+                        content += `
+                            <h4 style="margin-bottom: 12px;">返回数据</h4>
+                            <pre class="result-json">${JSON.stringify(result.data, null, 2)}</pre>
+                        `;
+                    } else {
+                        content += `
+                            <h4 style="margin-bottom: 12px;">返回结果</h4>
+                            <pre class="result-json">${result.data}</pre>
+                        `;
+                    }
+                }
+            } else {
+                content = `
+                    <div class="result-error">
+                        <div class="result-message">✗ 操作失败</div>
+                        <div class="result-details">${result.error}</div>
+                    </div>
+                `;
+            }
+            
+            document.getElementById('modal-title').textContent = '执行结果';
+            document.getElementById('modal-body').innerHTML = content;
+            document.getElementById('result-modal').classList.add('show');
+        }
+
+        function closeModal() {
+            document.getElementById('result-modal').classList.remove('show');
+        }
+
+        function renderResults() {
+            const list = document.getElementById('results-list');
+            const empty = document.getElementById('results-empty');
+            
+            if (executionResults.length === 0) {
+                empty.style.display = 'block';
+                list.innerHTML = '';
+                return;
+            }
+            
+            empty.style.display = 'none';
+            list.innerHTML = executionResults.map((result, index) => `
+                <div style="background: white; border-radius: 12px; padding: 16px 20px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <span style="font-weight: 500; color: #333;">${result.module}</span>
+                        <span style="font-size: 0.8rem; color: #999;">${result.time}</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="width: 10px; height: 10px; border-radius: 50%; background: ${result.success ? '#4caf50' : '#f44336'};"></span>
+                        <span style="font-size: 0.9rem; color: ${result.success ? '#4caf50' : '#f44336'};">
+                            ${result.success ? '✓ 成功' : '✗ 失败'}
+                        </span>
+                        <span style="font-size: 0.85rem; color: #666; margin-left: 8px;">${result.message}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 切换标签页
+        document.querySelectorAll('.nav-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                
+                tab.classList.add('active');
+                document.getElementById(`${tab.dataset.tab}-tab`).classList.add('active');
+                
+                if (tab.dataset.tab === 'results') {
+                    renderResults();
+                }
+            });
+        });
+
+        // 点击弹窗外部关闭
+        document.getElementById('result-modal').addEventListener('click', (e) => {
+            if (e.target === document.getElementById('result-modal')) {
+                closeModal();
+            }
+        });
+
+        // 初始化加载
+        loadModules();
+    </script>
+</body>
+</html>

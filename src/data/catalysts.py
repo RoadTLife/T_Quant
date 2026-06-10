@@ -23,7 +23,7 @@ def _add_project_root():
         sys.path.insert(0, project_root)
 
 _add_project_root()
-from src.conf.db_config import get_connection, DASHSCOPE_API_KEY
+from src.conf.db_config import get_connection, OPENAI_API_KEY, OPENAI_BASE_URL
 
 if sys.platform == 'win32' and hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8')
@@ -60,8 +60,8 @@ def _parse_json_array(content):
 
 def _get_client():
     return OpenAI(
-        api_key=DASHSCOPE_API_KEY,
-        base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+        api_key=OPENAI_API_KEY,
+        base_url=OPENAI_BASE_URL,
     )
 
 

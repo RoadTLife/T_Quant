@@ -35,6 +35,11 @@ KIMI_MODEL = _safe_get_config('kimi.model')
 DASHSCOPE_API_KEY = _safe_get_config('dashscope.api_key')
 QWEN_MODEL = _safe_get_config('qwen.model')
 
+# OpenAI配置（兼容DashScope等服务）
+OPENAI_API_KEY = _safe_get_config('openai.api_key')
+OPENAI_BASE_URL = _safe_get_config('openai.base_url')
+OPENAI_MODEL = _safe_get_config('openai.model')
+
 
 def get_connection():
     """获取数据库连接"""

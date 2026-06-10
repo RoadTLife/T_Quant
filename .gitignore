@@ -144,3 +144,6 @@ outputs/
 
 # MySQL data directory
 mysql_data/
+
+# Configuration files (contains sensitive information)
+config.yaml
