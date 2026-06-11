@@ -88,47 +88,52 @@ def get_stock_list_from_akshare():
         return None
 
 
-def get_industry_mapping(request_delay):
-    """获取行业板块映射（优化版：只获取成分股列表）"""
+def get_industry_mapping():
+    """获取行业板块映射（使用baostock）"""
     print("获取行业板块映射...")
     stock_industry_map = {}
     
     try:
-        import akshare as ak
+        import baostock as bs
         
-        industry_df = ak.stock_board_industry_name_em()
+        lg = bs.login()
+        if lg.error_code != '0':
+            print(f"  登录失败：{lg.error_msg}")
+            return {}
+        
+        rs = bs.query_stock_industry()
+        if rs.error_code != '0':
+            print(f"  获取行业数据失败：{rs.error_msg}")
+            bs.logout()
+            return {}
+        
+        industry_df = rs.get_data()
         if industry_df is None or len(industry_df) == 0:
             print("  获取行业板块列表失败")
+            bs.logout()
             return {}
         
         total = len(industry_df)
-        print(f"  共 {total} 个行业板块")
+        print(f"  共 {total} 条行业记录")
         
         for i, (_, row) in enumerate(industry_df.iterrows(), 1):
-            industry_name = row.get('板块名称', '')
-            if pd.isna(industry_name) or not industry_name:
-                continue
+            code = str(row.get('code', ''))
+            industry_name = row.get('industry', '')
             
-            try:
-                components_df = ak.stock_board_industry_cons_em(symbol=industry_name)
-                if components_df is not None and len(components_df) > 0:
-                    for _, comp_row in components_df.iterrows():
-                        code = str(comp_row.get('代码', ''))
-                        if code and len(code) >= 6:
-                            code = code[:6]
-                            if code not in stock_industry_map:
-                                stock_industry_map[code] = industry_name
-                
-                if i % 30 == 0:
-                    print(f"    已处理 {i}/{total} 个行业板块，已映射 {len(stock_industry_map)} 只股票")
-                
-                time.sleep(request_delay)
-                
-            except Exception as e:
-                if i % 50 == 0:
-                    print(f"    获取行业 {industry_name} 失败：{e}")
+            if pd.isna(industry_name) or not industry_name:
+                industry_name = '未分类'
+            
+            if '.' in code:
+                code = code.split('.')[1]
+            if not code or len(code) != 6:
                 continue
+            if code not in stock_industry_map:
+                stock_industry_map[code] = industry_name
+            
+            if i % 1000 == 0:
+                print(f"    已处理 {i}/{total} 条记录，已映射 {len(stock_industry_map)} 只股票")
         
+        bs.logout()
         print(f"  完成！共映射 {len(stock_industry_map)} 只股票到行业板块")
         return stock_industry_map
     
@@ -170,7 +175,7 @@ def main():
     print(f"  已有 {len(existing)} 只股票")
     
     # 获取行业板块映射
-    industry_map = get_industry_mapping(REQUEST_DELAY)
+    industry_map = get_industry_mapping()
     
     total = len(stock_list_df)
     start_time = time.time()
