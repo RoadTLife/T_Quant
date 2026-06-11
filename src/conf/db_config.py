@@ -13,7 +13,16 @@ KIMI_BASE_URL = get_main_config('kimi.base_url')
 KIMI_MODEL = get_main_config('kimi.model')
 
 DASHSCOPE_API_KEY = get_main_config('dashscope.api_key')
-QWEN_MODEL = get_main_config('qwen.model')
+QWEN_MODEL = get_main_config('dashscope.model')
+
+
+def _safe_get_config(key: str, default=None):
+    """安全获取配置，不存在时返回默认值"""
+    try:
+        return get_main_config(key)
+    except ConfigError:
+        return default
+
 
 # OpenAI配置（兼容DashScope等服务）
 OPENAI_API_KEY = _safe_get_config('openai.api_key')

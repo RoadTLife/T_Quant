@@ -35,19 +35,19 @@ if sys.platform == 'win32' and hasattr(sys.stdout, 'reconfigure'):
 
 
 def fetch_new_stocks():
-    """获取A股新股发行数据（使用stock_ipo_review_em获取历史数据）"""
+    """获取A股新股发行数据"""
     print("采集新股数据...")
     
-    # 优先使用stock_ipo_review_em获取历史数据（2006年至今）
-    df = ak.stock_ipo_review_em()
+    # 使用stock_new_ipo_cninfo获取新股数据
+    df = ak.stock_new_ipo_cninfo()
     
     if df is None or len(df) == 0:
-        print("  stock_ipo_review_em 返回空，尝试备用接口...")
-        df = ak.stock_new_ipo_cninfo()
+        print("  stock_new_ipo_cninfo 返回空，尝试备用接口...")
+        df = ak.stock_ipo_summary_cninfo()
     
     if df is None or len(df) == 0:
-        print("  stock_new_ipo_cninfo 返回空，尝试同花顺接口...")
-        df = ak.stock_ipo_ths()
+        print("  stock_ipo_summary_cninfo 返回空，尝试同花顺接口...")
+        df = ak.stock_ipo_benefit_ths()
     
     if df is None or len(df) == 0:
         print("  所有接口都返回空")
@@ -107,23 +107,39 @@ def save_ipo_detail_to_mysql(df):
             except:
                 pass
         
-        # 适配不同接口的列名
-        stock_code = str(row['股票代码']).strip() if '股票代码' in df.columns and pd.notna(row['股票代码']) else None
-        stock_name = str(row['股票简称']).strip() if '股票简称' in df.columns and pd.notna(row['股票简称']) else None
+        # 适配不同接口的列名（支持"证劵代码"和"股票代码"）
+        stock_code = None
+        if '证劵代码' in df.columns and pd.notna(row['证劵代码']):
+            stock_code = str(row['证劵代码']).strip()
+        elif '股票代码' in df.columns and pd.notna(row['股票代码']):
+            stock_code = str(row['股票代码']).strip()
+        
+        stock_name = None
+        if '证券简称' in df.columns and pd.notna(row['证券简称']):
+            stock_name = str(row['证券简称']).strip()
+        elif '股票简称' in df.columns and pd.notna(row['股票简称']):
+            stock_name = str(row['股票简称']).strip()
+        
         issue_price = float(row['发行价']) if '发行价' in df.columns and pd.notna(row['发行价']) else None
         
-        # 发行数量可能是'总发行数量'或'发行数量(股)'
+        # 发行数量（单位：万股）
         issue_volume = None
         if '总发行数量' in df.columns and pd.notna(row['总发行数量']):
             issue_volume = float(row['总发行数量'])
         elif '发行数量(股)' in df.columns and pd.notna(row['发行数量(股)']):
-            # 转换为万股
             issue_volume = float(row['发行数量(股)']) / 10000
         
         online_volume = float(row['上网发行数量']) if '上网发行数量' in df.columns and pd.notna(row['上网发行数量']) else None
         issue_pe = float(row['发行市盈率']) if '发行市盈率' in df.columns and pd.notna(row['发行市盈率']) else None
         subscription_rate = float(row['上网发行中签率']) if '上网发行中签率' in df.columns and pd.notna(row['上网发行中签率']) else None
-        financing_amount = float(row['拟融资额(元)']) if '拟融资额(元)' in df.columns and pd.notna(row['拟融资额(元)']) else None
+        
+        # 计算融资额（融资额 = 发行价 × 发行数量，单位：亿元）
+        financing_amount = None
+        if issue_price is not None and issue_volume is not None:
+            # 发行价(元) × 发行数量(万股) × 10000 = 总融资额(元)
+            # 转换为亿元: 总融资额(元) / 100000000 = 发行价 × 发行数量 / 10000
+            financing_amount = issue_price * issue_volume / 10000
+        
         listing_board = str(row['上市板块']).strip() if '上市板块' in df.columns and pd.notna(row['上市板块']) else None
         underwriter = str(row['主承销商']).strip() if '主承销商' in df.columns and pd.notna(row['主承销商']) else None
         sponsor = str(row['保荐机构']).strip() if '保荐机构' in df.columns and pd.notna(row['保荐机构']) else None
@@ -149,20 +165,23 @@ def parse_and_statistics(df):
     
     # 查找列名（适配不同接口）
     date_col = None
-    amount_col = None
+    issue_price_col = None
+    issue_volume_col = None
     
     for col in df.columns:
         if '上市日期' in col:
             date_col = col
-        elif '拟融资额' in col:
-            amount_col = col
-        elif '融资额' in col:
-            amount_col = col
+        elif '发行价' in col:
+            issue_price_col = col
+        elif '总发行数量' in col:
+            issue_volume_col = col
+        elif '发行数量' in col:
+            issue_volume_col = col
     
     if date_col is None:
         date_col = df.columns[0]
     
-    print(f"  使用列: 日期={date_col}, 融资额={amount_col}")
+    print(f"  使用列: 日期={date_col}, 发行价={issue_price_col}, 发行数量={issue_volume_col}")
     
     # 解析日期
     def parse_date(s):
@@ -195,15 +214,19 @@ def parse_and_statistics(df):
     df_valid = df_valid[df_valid['trade_date'] <= today]
     print(f"  过滤未来数据（{future_count}条）后: {len(df_valid)} 条")
     
-    # 计算募集资金（从拟融资额字段获取，单位转换为亿元）
-    if amount_col and amount_col in df_valid.columns:
-        df_valid['amount'] = pd.to_numeric(df_valid[amount_col], errors='coerce').fillna(0)
-        # 转换为亿元（原单位是元）
-        df_valid['amount'] = df_valid['amount'] / 100000000
-        print(f"  募集资金范围: {df_valid['amount'].min():.2f} ~ {df_valid['amount'].max():.2f} 亿元")
-    else:
-        df_valid['amount'] = 0
-        print("  未找到融资额字段")
+    # 计算募集资金（融资额 = 发行价 × 发行数量，单位：亿元）
+    df_valid['amount'] = 0.0
+    valid_count = 0
+    
+    if issue_price_col and issue_volume_col:
+        issue_price = pd.to_numeric(df_valid[issue_price_col], errors='coerce').fillna(0)
+        issue_volume = pd.to_numeric(df_valid[issue_volume_col], errors='coerce').fillna(0)
+        # 发行价(元) × 发行数量(万股) / 10000 = 融资额(亿元)
+        df_valid['amount'] = issue_price * issue_volume / 10000
+        valid_count = len(df_valid[(issue_price > 0) & (issue_volume > 0)])
+    
+    print(f"  有效融资数据: {valid_count} 条")
+    print(f"  募集资金范围: {df_valid['amount'].min():.2f} ~ {df_valid['amount'].max():.2f} 亿元")
     
     # 按月份分组统计
     df_valid['month'] = df_valid['trade_date'].dt.to_period('M').dt.to_timestamp('M')

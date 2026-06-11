@@ -242,4 +242,34 @@ CREATE TABLE IF NOT EXISTS trade_operation_log (
     KEY idx_operation_time (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='操作日志';
 
+CREATE TABLE IF NOT EXISTS trade_market_sentiment (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    collect_time DATETIME NOT NULL COMMENT '采集时间',
+    sentiment_score DECIMAL(5,2) NOT NULL COMMENT '情绪评分',
+    sentiment_level VARCHAR(20) NOT NULL COMMENT '情绪等级',
+    advice TEXT COMMENT '操作建议',
+    limit_up_count INT DEFAULT 0 COMMENT '涨停家数',
+    limit_down_count INT DEFAULT 0 COMMENT '跌停家数',
+    consecutive_limit_up_count INT DEFAULT 0 COMMENT '连板股票数',
+    max_consecutive_limit_up INT DEFAULT 0 COMMENT '最高连板数',
+    up_count INT DEFAULT 0 COMMENT '上涨家数',
+    down_count INT DEFAULT 0 COMMENT '下跌家数',
+    up_down_ratio DECIMAL(5,2) DEFAULT 0 COMMENT '涨跌比',
+    up_ratio DECIMAL(5,2) DEFAULT 0 COMMENT '上涨比例(%)',
+    board_rate DECIMAL(5,2) DEFAULT 0 COMMENT '封板率(%)',
+    zaba_rate DECIMAL(5,2) DEFAULT 0 COMMENT '炸板率(%)',
+    north_money_inflow DECIMAL(15,2) DEFAULT 0 COMMENT '北向资金净流入(亿元)',
+    shanghai_price DECIMAL(10,2) DEFAULT 0 COMMENT '上证指数',
+    shanghai_change_pct DECIMAL(5,2) DEFAULT 0 COMMENT '上证指数涨跌幅(%)',
+    shenzhen_price DECIMAL(10,2) DEFAULT 0 COMMENT '深证成指',
+    shenzhen_change_pct DECIMAL(5,2) DEFAULT 0 COMMENT '深证成指涨跌幅(%)',
+    chuangye_price DECIMAL(10,2) DEFAULT 0 COMMENT '创业板指',
+    chuangye_change_pct DECIMAL(5,2) DEFAULT 0 COMMENT '创业板指涨跌幅(%)',
+    hs300_price DECIMAL(10,2) DEFAULT 0 COMMENT '沪深300',
+    hs300_change_pct DECIMAL(5,2) DEFAULT 0 COMMENT '沪深300涨跌幅(%)',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY idx_sentiment_collect_time (collect_time),
+    KEY idx_sentiment_date (collect_time)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='市场情绪数据';
+
 SELECT 'Tables created successfully in database: trade' AS result;

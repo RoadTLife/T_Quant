@@ -90,6 +90,18 @@ def get_data_modules():
     data_dir = os.path.join(BASE_DIR, 'src/data')
     modules_info = []
     
+    # 从配置文件加载定时任务配置
+    scheduled_tasks_config = {}
+    if 'scheduled_tasks' in config and 'tasks' in config['scheduled_tasks']:
+        for task in config['scheduled_tasks']['tasks']:
+            scheduled_tasks_config[task['id']] = {
+                'cron': task.get('cron', ''),
+                'schedule_time': task.get('schedule_time', ''),
+                'description': task.get('description', ''),
+                'priority': task.get('priority', 0),
+                'enabled': task.get('enabled', True)
+            }
+    
     # 数据模块配置
     modules_config = {
         'macro_data': {
@@ -183,7 +195,7 @@ def get_data_modules():
         }
     }
     
-    for module_name, config in modules_config.items():
+    for module_name, module_config in modules_config.items():
         # 检查模块是否存在
         module_path = os.path.join(data_dir, f'{module_name}.py')
         exists = os.path.exists(module_path)
@@ -191,25 +203,29 @@ def get_data_modules():
         # 检查依赖是否满足
         deps_ok = []
         deps_missing = []
-        for dep in config['dependencies']:
+        for dep in module_config['dependencies']:
             try:
                 importlib.import_module(dep)
                 deps_ok.append(dep)
             except ImportError:
                 deps_missing.append(dep)
         
+        # 获取定时任务配置
+        schedule = scheduled_tasks_config.get(module_name)
+        
         modules_info.append({
-            'name': config['name'],
+            'name': module_config['name'],
             'module': module_name,
-            'description': config['description'],
+            'description': module_config['description'],
             'exists': exists,
             'dependencies': {
-                'required': config['dependencies'],
+                'required': module_config['dependencies'],
                 'ok': deps_ok,
                 'missing': deps_missing,
                 'all_satisfied': len(deps_missing) == 0
             },
-            'functions': config['functions']
+            'functions': module_config['functions'],
+            'schedule': schedule
         })
     
     return jsonify(modules_info)

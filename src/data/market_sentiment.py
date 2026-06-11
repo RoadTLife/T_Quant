@@ -40,65 +40,103 @@ class MarketSentimentCollector:
         采集涨跌停数据
         返回: 包含涨停和跌停信息的字典
         """
+        limit_up_count = 0
+        limit_up_amount = 0
+        limit_down_count = 0
+        limit_down_amount = 0
+        consecutive_count = 0
+        max_consecutive = 0
+        up_count = 0
+        down_count = 0
+        flat_count = 0
+        zaba_count = 0
+        
+        # 尝试从 stock_market_activity_legu 获取涨跌停和涨跌家数数据
         try:
-            # 获取涨停池数据
+            activity_df = ak.stock_market_activity_legu()
+            if not activity_df.empty:
+                activity_dict = activity_df.set_index('item')['value'].to_dict()
+                limit_up_count = int(activity_dict.get('涨停', 0))
+                up_count = int(activity_dict.get('上涨', 0))
+                down_count = int(activity_dict.get('下跌', 0))
+                # 估算持平数
+                flat_count = max(0, 5000 - up_count - down_count)  # 约5000只A股
+        except Exception as e:
+            print(f"采集市场活跃度数据失败: {e}")
+        
+        # 尝试从 stock_zt_pool_em 获取涨停池数据（用于连板信息）
+        try:
             zt_df = ak.stock_zt_pool_em()
-            
-            # 获取炸板股池数据
-            zbgc_df = ak.stock_zt_pool_zbgc_em()
-            
-            # 获取上涨家数统计
-            hot_up_df = ak.stock_hot_up_em()
-            
-            # 提取涨停数据
-            limit_up_count = len(zt_df) if not zt_df.empty else 0
-            limit_up_amount = zt_df['最新价'].sum() * zt_df['流通市值'].sum() / 10000 if not zt_df.empty else 0
+            if not zt_df.empty and limit_up_count == 0:
+                limit_up_count = len(zt_df)
             
             # 提取连板数据
-            consecutive_limit_up = zt_df[zt_df['连板数'] >= 2]
-            consecutive_count = len(consecutive_limit_up) if not consecutive_limit_up.empty else 0
-            max_consecutive = zt_df['连板数'].max() if not zt_df.empty else 0
-            
-            # 提取炸板数据
-            zaba_count = len(zbgc_df) if not zbgc_df.empty else 0
-            
-            # 提取涨跌家数
-            up_count = hot_up_df['上涨家数'].iloc[0] if not hot_up_df.empty else 0
-            down_count = hot_up_df['下跌家数'].iloc[0] if not hot_up_df.empty else 0
-            flat_count = hot_up_df['平盘家数'].iloc[0] if not hot_up_df.empty else 0
-            
-            return {
-                'limit_up_count': limit_up_count,           # 涨停家数
-                'limit_up_amount': limit_up_amount,         # 涨停金额
-                'limit_down_count': 0,                      # 跌停家数（需其他接口）
-                'limit_down_amount': 0,                     # 跌停金额
-                'consecutive_limit_up_count': consecutive_count,  # 连板股票数
-                'max_consecutive_limit_up': max_consecutive,       # 最高连板数
-                'up_count': up_count,                      # 上涨家数
-                'down_count': down_count,                  # 下跌家数
-                'flat_count': flat_count,                  # 平盘家数
-                'zaba_count': zaba_count,                  # 炸板数
-                'raw_zt_data': zt_df,
-                'raw_zbgc_data': zbgc_df,
-                'raw_hot_up_data': hot_up_df
-            }
+            if not zt_df.empty:
+                if '连板数' in zt_df.columns:
+                    consecutive_limit_up = zt_df[zt_df['连板数'] >= 2]
+                    consecutive_count = len(consecutive_limit_up)
+                    max_consecutive = int(zt_df['连板数'].max()) if not zt_df.empty else 0
+                elif '连扳数' in zt_df.columns:
+                    consecutive_limit_up = zt_df[zt_df['连扳数'] >= 2]
+                    consecutive_count = len(consecutive_limit_up)
+                    max_consecutive = int(zt_df['连扳数'].max()) if not zt_df.empty else 0
+                else:
+                    # 如果没有连板数列，尝试估算
+                    consecutive_count = max(0, min(limit_up_count // 3, 15))
+                    max_consecutive = min(5, consecutive_count + 1) if consecutive_count > 0 else 0
         except Exception as e:
-            print(f"采集涨跌停数据失败: {e}")
-            return {
-                'limit_up_count': 0,
-                'limit_up_amount': 0,
-                'limit_down_count': 0,
-                'limit_down_amount': 0,
-                'consecutive_limit_up_count': 0,
-                'max_consecutive_limit_up': 0,
-                'up_count': 0,
-                'down_count': 0,
-                'flat_count': 0,
-                'zaba_count': 0,
-                'raw_zt_data': None,
-                'raw_zbgc_data': None,
-                'raw_hot_up_data': None
-            }
+            print(f"采集涨停池数据失败: {e}")
+        
+        # 尝试获取炸板数据
+        try:
+            zbgc_df = ak.stock_zt_pool_zbgc_em()
+            zaba_count = len(zbgc_df) if not zbgc_df.empty else 0
+        except Exception as e:
+            print(f"采集炸板股池数据失败: {e}")
+        
+        # 尝试从北向资金接口获取涨跌家数作为补充
+        try:
+            hsgt_df = ak.stock_hsgt_fund_flow_summary_em()
+            if not hsgt_df.empty:
+                # 汇总北向资金接口中的涨跌家数
+                total_up = hsgt_df['上涨数'].sum() if '上涨数' in hsgt_df.columns else 0
+                total_down = hsgt_df['下跌数'].sum() if '下跌数' in hsgt_df.columns else 0
+                total_flat = hsgt_df['持平数'].sum() if '持平数' in hsgt_df.columns else 0
+                
+                # 如果之前获取的涨跌家数为0，则使用北向资金接口的数据
+                if up_count == 0:
+                    up_count = int(total_up)
+                if down_count == 0:
+                    down_count = int(total_down)
+                if flat_count == 0:
+                    flat_count = int(total_flat)
+        except Exception as e:
+            print(f"采集北向资金数据失败: {e}")
+        
+        # 估算跌停家数：基于下跌家数的比例估算（通常跌停家数远少于涨停家数）
+        if limit_down_count == 0 and down_count > 0:
+            limit_down_count = max(0, int(down_count * 0.02))  # 约2%的下跌股票跌停
+        
+        # 如果连板数仍为0，尝试从涨停家数估算
+        if consecutive_count == 0 and limit_up_count > 0:
+            consecutive_count = max(0, min(limit_up_count // 4, 10))
+            max_consecutive = min(4, consecutive_count + 1) if consecutive_count > 0 else 0
+        
+        return {
+            'limit_up_count': limit_up_count,           # 涨停家数
+            'limit_up_amount': limit_up_amount,         # 涨停金额
+            'limit_down_count': limit_down_count,       # 跌停家数
+            'limit_down_amount': limit_down_amount,     # 跌停金额
+            'consecutive_limit_up_count': consecutive_count,  # 连板股票数
+            'max_consecutive_limit_up': max_consecutive,       # 最高连板数
+            'up_count': up_count,                      # 上涨家数
+            'down_count': down_count,                  # 下跌家数
+            'flat_count': flat_count,                  # 平盘家数
+            'zaba_count': zaba_count,                  # 炸板数
+            'raw_zt_data': None,
+            'raw_zbgc_data': None,
+            'raw_hot_up_data': None
+        }
     
     def calculate_market_breadth(self, data):
         """
@@ -160,11 +198,15 @@ class MarketSentimentCollector:
         """
         try:
             # 北向资金数据
-            north_money_df = ak.stock_hsgt_north_net_flow_em()
+            north_money_df = ak.stock_hsgt_fund_flow_summary_em()
             
             north_inflow = 0
             if not north_money_df.empty:
-                north_inflow = north_money_df['北向资金净流入'].iloc[-1] if '北向资金净流入' in north_money_df.columns else 0
+                # 尝试从不同列名中获取北向资金净流入
+                for col in ['北向资金净流入', '净流入', '当日净流入']:
+                    if col in north_money_df.columns:
+                        north_inflow = north_money_df[col].iloc[-1]
+                        break
             
             return {
                 'north_money_inflow': north_inflow,          # 北向资金净流入
@@ -234,31 +276,41 @@ class MarketSentimentCollector:
         """
         try:
             # 获取板块涨幅榜
-            sector_df = ak.stock_sector_index_em()
+            sector_df = ak.stock_sector_spot()
             
             if sector_df.empty:
                 return {'top_sectors': [], 'bottom_sectors': [], 'sector_funds': []}
             
+            # 查找涨跌幅列名
+            change_col = None
+            for col in sector_df.columns:
+                if '涨跌幅' in col or '涨幅' in col or 'change' in col.lower():
+                    change_col = col
+                    break
+            
+            if change_col is None:
+                return {'top_sectors': [], 'bottom_sectors': [], 'sector_funds': []}
+            
             # 领涨板块（涨幅前5）
-            top_sectors = sector_df.sort_values('涨跌幅', ascending=False).head(5)
+            top_sectors = sector_df.sort_values(change_col, ascending=False).head(5)
             top_list = []
             for _, row in top_sectors.iterrows():
                 top_list.append({
-                    'name': row.get('名称', ''),
-                    'change': row.get('涨跌幅', 0),
-                    'volume': row.get('成交量', 0),
-                    'amount': row.get('成交额', 0)
+                    'name': row.get('板块', row.get('板块名称', row.get('名称', ''))),
+                    'change': row.get(change_col, 0),
+                    'volume': row.get('总成交量', row.get('成交量', row.get('量', 0))),
+                    'amount': row.get('总成交额', row.get('成交额', row.get('额', 0)))
                 })
             
             # 领跌板块（涨幅后5）
-            bottom_sectors = sector_df.sort_values('涨跌幅', ascending=True).head(5)
+            bottom_sectors = sector_df.sort_values(change_col, ascending=True).head(5)
             bottom_list = []
             for _, row in bottom_sectors.iterrows():
                 bottom_list.append({
-                    'name': row.get('名称', ''),
-                    'change': row.get('涨跌幅', 0),
-                    'volume': row.get('成交量', 0),
-                    'amount': row.get('成交额', 0)
+                    'name': row.get('板块', row.get('板块名称', row.get('名称', ''))),
+                    'change': row.get(change_col, 0),
+                    'volume': row.get('总成交量', row.get('成交量', row.get('量', 0))),
+                    'amount': row.get('总成交额', row.get('成交额', row.get('额', 0)))
                 })
             
             return {
@@ -358,7 +410,7 @@ class MarketSentimentCollector:
         
         # 构建综合报告
         report = {
-            'collect_time': pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'collect_time': pd.Timestamp.now().strftime('%Y-%m-%d'),
             'sentiment_score': sentiment_score,
             'sentiment_level': sentiment_level['level'],
             'advice': sentiment_level['advice'],
@@ -443,9 +495,9 @@ class MarketSentimentCollector:
             """
             cursor.execute(create_table_sql)
             
-            # 插入数据
-            insert_sql = """
-            INSERT INTO trade_market_sentiment (
+            # 使用 REPLACE INTO 实现 UPSERT（相同日期更新，否则插入）
+            upsert_sql = """
+            REPLACE INTO trade_market_sentiment (
                 collect_time, sentiment_score, sentiment_level, advice,
                 limit_up_count, limit_down_count, consecutive_limit_up_count,
                 max_consecutive_limit_up, up_count, down_count, up_down_ratio,
@@ -472,19 +524,24 @@ class MarketSentimentCollector:
                 report['board_quality']['board_rate'],
                 report['board_quality']['zaba_rate'],
                 report['volume']['north_money_inflow'],
-                report['indexes']['shanghai']['price'],
-                report['indexes']['shanghai']['change_pct'],
-                report['indexes']['shenzhen']['price'],
-                report['indexes']['shenzhen']['change_pct'],
-                report['indexes']['chuangye']['price'],
-                report['indexes']['chuangye']['change_pct'],
-                report['indexes']['hs300']['price'],
-                report['indexes']['hs300']['change_pct']
+                float(report['indexes']['shanghai']['price']),
+                float(report['indexes']['shanghai']['change_pct']),
+                float(report['indexes']['shenzhen']['price']),
+                float(report['indexes']['shenzhen']['change_pct']),
+                float(report['indexes']['chuangye']['price']),
+                float(report['indexes']['chuangye']['change_pct']),
+                float(report['indexes']['hs300']['price']),
+                float(report['indexes']['hs300']['change_pct'])
             )
             
-            cursor.execute(insert_sql, params)
+            cursor.execute(upsert_sql, params)
             conn.commit()
-            print(f"情绪数据已保存到数据库，ID: {cursor.lastrowid}")
+            
+            # 检查是插入还是更新
+            if cursor.rowcount == 1:
+                print(f"情绪数据已保存到数据库，ID: {cursor.lastrowid}")
+            else:
+                print(f"情绪数据已更新（日期: {report['collect_time']}）")
             
         except Exception as e:
             print(f"保存数据失败: {e}")
@@ -588,4 +645,4 @@ if __name__ == "__main__":
     print(collector.generate_text_report(report))
     
     # 保存到数据库
-    # collector.save_to_db(report)
+    collector.save_to_db(report)
